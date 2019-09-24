@@ -1,7 +1,7 @@
 # PL-SLAM
-The method is implemented in《PL-SLAM:Real-time Monocular Visual SLAM with Points and Lines》 
+**PL-SLAM:** The method is implemented in《PL-SLAM:Real-time Monocular Visual SLAM with Points and Lines》 
 
-# This project only supports monocular ORB_SLAM2 with line. the code is modified from [lanyouzibetty]( https://github.com/lanyouzibetty/ORB-SLAM2_with_line.git)
+This project only supports monocular ORB_SLAM2 with line. The code is modified from [lanyouzibetty]( https://github.com/lanyouzibetty/ORB-SLAM2_with_line.git)
 
 # ORB-SLAM2
 **Authors:** [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2))
