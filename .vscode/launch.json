@@ -1,0 +1,34 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/Examples/Monocular/mono_tum",
+            "args": ["./Vocabulary/ORBvoc.bin", "Examples/Monocular/TUM2.yaml",
+                "/home/cjg/DataSets/TUM/Structure_and_texture/rgbd_dataset_freiburg2_large_with_loop/" ],
+            /*"program": "${workspaceFolder}/Examples/Monocular/mono_tum",
+            "args": ["./Vocabulary/ORBvoc.bin", "Examples/Monocular/TUM3.yaml",
+                "/home/cjg/DataSets/TUM/Structure_and_texture/rgbd_dataset_freiburg3_structure_texture_far/" ],*/
+            //"program": "${workspaceFolder}/Examples/TestDebug/testOpt",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "preLaunchTask": "build",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
