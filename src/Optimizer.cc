@@ -962,7 +962,8 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             break;
     }    
 
-    cerr<<nLineInitalCorrespondences- nLineBad<<endl;
+    //if(nLineInitalCorrespondences- nLineBad)
+    cerr<<"Pose Optimation is "<<nLineInitalCorrespondences<<", "<<nLineInitalCorrespondences- nLineBad<<" lines"<<endl;
 
     // Recover optimized pose and return number of inliers
     g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
@@ -1643,7 +1644,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
 ///包含有线特征的局部BA
 void Optimizer::LocalBundleAdjustmentWithLine(KeyFrame *pKF, bool *pbStopFlag, Map *pMap)
 {
-    double invSigma = 1;
+    double invSigma = 0.5;
     // Local KeyFrames: First Breath Search from Current KeyFrame
     list<KeyFrame*> lLocalKeyFrames;
 
@@ -1661,8 +1662,8 @@ void Optimizer::LocalBundleAdjustmentWithLine(KeyFrame *pKF, bool *pbStopFlag, M
             lLocalKeyFrames.push_back(pKFi);
     }
 
-    // step3：将lLocalKeyFrames的MapPoints加入到lLocalMapPoints
     list<MapPoint*> lLocalMapPoints;
+    // step3：将lLocalKeyFrames的MapPoints加入到lLocalMapPoints
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
     {
         vector<MapPoint*> vpMPs = (*lit)->GetMapPointMatches();
@@ -1683,8 +1684,8 @@ void Optimizer::LocalBundleAdjustmentWithLine(KeyFrame *pKF, bool *pbStopFlag, M
         }
     }
 
-    // step4: 遍历lLocalKeyFrames，将每个关键帧所能观测到的MapLine提取出来，放到lLocalMapLines
     list<MapLine*> lLocalMapLines;
+    // step4: 遍历lLocalKeyFrames，将每个关键帧所能观测到的MapLine提取出来，放到lLocalMapLines
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
     {
         vector<MapLine*> vpMLs = (*lit)->GetMapLineMatches();
@@ -1705,9 +1706,26 @@ void Optimizer::LocalBundleAdjustmentWithLine(KeyFrame *pKF, bool *pbStopFlag, M
         }
     }
 
-    // step5: 得到能被局部MapPoints观测到，但不属于局部关键帧的关键帧，这些关键帧在局部BA优化时固定
     list<KeyFrame*> lFixedCameras;
+    // step5: 被局部MapPoints观测到，但不属于局部关键帧的关键帧，这些关键帧在局部BA优化时固定
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
+    {
+        map<KeyFrame*, size_t > observations = (*lit)->GetObservations();
+        for(map<KeyFrame*, size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
+        {
+            KeyFrame* pKFi = mit->first;
+
+            if(pKFi->mnBALocalForKF!=pKF->mnId && pKFi->mnBAFixedForKF!=pKF->mnId)
+            {
+                pKFi->mnBAFixedForKF=pKF->mnId;
+                if(!pKFi->isBad())
+                    lFixedCameras.push_back(pKFi);
+            }
+        }
+    }
+
+    // step6:被局部MapLines观测到，但不属于局部关键帧的关键帧，这些关键帧在局部BA优化时固定
+    for(list<MapLine*>::iterator lit=lLocalMapLines.begin(), lend=lLocalMapLines.end(); lit!=lend; lit++)
     {
         map<KeyFrame*, size_t > observations = (*lit)->GetObservations();
         for(map<KeyFrame*, size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)

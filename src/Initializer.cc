@@ -1292,6 +1292,26 @@ void Initializer::ReconstructLine(vector<Match> &vLineMatches, cv::Mat &K, cv::M
             continue;
         }
 
+        // 判断端点到光心的夹角
+        cv::Mat normal1 = L3dSC1 - O1;
+        float dist1 = cv::norm(normal1);
+
+        cv::Mat normal2 = L3dSC1 - O2;
+        float dist2 = cv::norm(normal2);
+
+        float cosParallax1 = normal1.dot(normal2)/(dist1*dist2);
+
+        normal1 = L3dEC1 - O1;
+        dist1 = cv::norm(normal1);
+
+        normal2 = L3dEC1 - O2;
+        dist2 = cv::norm(normal2);
+
+        float cosParallax2 = normal1.dot(normal2)/(dist1*dist2);
+
+        if(cosParallax1 >= 0.99998 || cosParallax2 >= 0.99998)
+            continue;
+
         vLineS3D[index] = cv::Point3f(L3dSC1.at<float>(0), L3dSC1.at<float>(1), L3dSC1.at<float>(2));
         vLineE3D[index] = cv::Point3f(L3dEC1.at<float>(0), L3dEC1.at<float>(1), L3dEC1.at<float>(2));
 

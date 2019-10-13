@@ -21,6 +21,7 @@
 #include "KeyFrame.h"
 #include "Converter.h"
 #include "ORBmatcher.h"
+#include <unordered_set>
 #include<mutex>
 
 namespace ORB_SLAM2
@@ -677,6 +678,82 @@ vector<size_t> KeyFrame::GetLinesInArea(const float &x1, const float &y1, const 
         vIndices.push_back(i);
     }
 
+    return vIndices;
+}
+
+vector<size_t> KeyFrame::GetFeaturesInAreaForLine(const float &x1, const float &y1, const float &x2, const float &y2, const float  &r, const float TH) const
+{
+    vector<size_t> vIndices;
+    vIndices.reserve(NL);
+    unordered_set<size_t> vIndices_set;
+
+    float x[3] = {x1, (x1+x2)/2.0, x2};
+    float y[3] = {y1, (y1+y2)/2.0, y2}; 
+
+    float delta1x = x1-x2;
+    float delta1y = y1-y2;
+    float norm_delta1 = sqrt(delta1x*delta1x + delta1y*delta1y);
+    delta1x /= norm_delta1;
+    delta1y /= norm_delta1;
+
+    for(int i = 0; i<3;i++){
+        const int nMinCellX = max(0,(int)floor((x[i]-mnMinX-r)*mfGridElementWidthInv));
+        if(nMinCellX>=FRAME_GRID_COLS)
+            continue;
+
+        const int nMaxCellX = min((int)FRAME_GRID_COLS-1,(int)ceil((x[i]-mnMinX+r)*mfGridElementWidthInv));
+        if(nMaxCellX<0)
+            continue;
+
+        const int nMinCellY = max(0,(int)floor((y[i]-mnMinY-r)*mfGridElementHeightInv));
+        if(nMinCellY>=FRAME_GRID_ROWS)
+            continue;
+
+        const int nMaxCellY = min((int)FRAME_GRID_ROWS-1,(int)ceil((y[i]-mnMinY+r)*mfGridElementHeightInv));
+        if(nMaxCellY<0)
+            continue;
+
+        for(int ix = nMinCellX; ix<=nMaxCellX; ix++)
+        {
+            for(int iy = nMinCellY; iy<=nMaxCellY; iy++)
+            {
+                const vector<size_t> vCell = mGridForLine[ix][iy];
+                if(vCell.empty())
+                    continue;
+
+                for(size_t j=0, jend=vCell.size(); j<jend; j++)
+                {
+                    if(vIndices_set.find(vCell[j]) != vIndices_set.end())
+                        continue;
+
+                    const KeyLine &klUn = mvKeyLines[vCell[j]];
+
+                    float delta2x = klUn.startPointX - klUn.endPointX;
+                    float delta2y = klUn.startPointY - klUn.endPointY;
+                    float norm_delta2 = sqrt(delta2x*delta2x + delta2y*delta2y);
+                    delta2x /= norm_delta2;
+                    delta2y /= norm_delta2;
+                    float CosSita = abs(delta1x * delta2x + delta1y * delta2y);
+
+                    if(CosSita < TH)
+                        continue;
+
+                    Eigen::Vector3d Lfunc = mvKeyLineFunctions[vCell[j]]; 
+                    const float dist = Lfunc(0)*x[i] + Lfunc(1)*y[i] + Lfunc(2);
+
+                    if(fabs(dist)<r)
+                    {
+                        if(vIndices_set.find(vCell[j]) == vIndices_set.end())
+                        {
+                            vIndices.push_back(vCell[j]);
+                            vIndices_set.insert(vCell[j]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     return vIndices;
 }
 

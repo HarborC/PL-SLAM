@@ -80,14 +80,17 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     int img_width = fSettings["Camera.width"];
     int img_height = fSettings["Camera.height"];
 
-    cout << "img_width = " << img_width << endl;
+    if((mask = imread("./masks/mask.png", cv::IMREAD_GRAYSCALE)).empty())
+        mask = cv::Mat();
+
+    /*cout << "img_width = " << img_width << endl;
     cout << "img_height = " << img_height << endl;
 
     // 自己添加的，在这里先得到映射值
     initUndistortRectifyMap(mK, mDistCoef, Mat_<double>::eye(3,3), mK, Size(img_width, img_height), CV_32F, mUndistX, mUndistY);
 
     cout << "mUndistX size = " << mUndistX.size << endl;
-    cout << "mUndistY size = " << mUndistY.size << endl;
+    cout << "mUndistY size = " << mUndistY.size << endl;*/
 
     mbf = fSettings["Camera.bf"];
 
@@ -275,20 +278,33 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     }
 
     // 在这里纠正畸变图片,自己添加的
-    cv::remap(mImGray, mImGray, mUndistX, mUndistY, cv::INTER_LINEAR);
+    //cv::remap(mImGray, mImGray, mUndistX, mUndistY, cv::INTER_LINEAR);
+    /*cv::Mat mask;
+    mImGray.copyTo(mask);
+    for(int i = 0; i<mask.rows;i++){
+        for(int j = 0;j<mask.cols;j++){
+            if(i>=14&&i<=464&&j>=14&&j<=624){
+                mask.at<uchar>(i,j) = 255;
+            }else{
+                mask.at<uchar>(i,j) = 0;
+            }
+        }
+    }
+
+    imwrite("./mask.png", mask);*/
 
     // Kitti数据集
 //    mImGray = mImGray(Rect(15, 15, 1211, 346));  //这里是为了剪切掉修正后图片的弧形边缘，针对不同数据集，image的尺寸不一样，所以这里应该改成动态的
     // TUM数据集
-    mImGray = mImGray(Rect(15, 15, 610, 450));
+    //mImGray = mImGray(Rect(15, 15, 610, 450));*/
 
     static int count=0;
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
     {
-        mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpLSDextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpLSDextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mask);
     }
     else
-        mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpLSDextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
+        mCurrentFrame = Frame(mImGray,timestamp,mpORBextractorLeft,mpLSDextractorLeft,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth,mask);
 
     Track();
 
@@ -963,6 +979,7 @@ void Tracking::CreateInitialMapMonoWithLine()
         pMP->AddObservation(pKFcur, mvIniMatches[i]);
 
         // b.从众多观测到该MapPoint的特征点中挑选出区分度最高的描述子
+        pMP->ComputeDistinctiveDescriptors();
         pMP->UpdateNormalAndDepth();
 
         // Fill Current Frame structure
@@ -1150,10 +1167,13 @@ bool Tracking::TrackReferenceKeyFrame()
 
     // 通过优化3D-2D的重投影误差来获得位姿
     mCurrentFrame.SetPose(mLastFrame.mTcw);
-    if(nmatches > 30){
+    if(nmatches > 20){
          Optimizer::PoseOptimizationWithPoints(&mCurrentFrame);
-         std::vector<bool> bOutlier = std::vector<bool>(mCurrentFrame.NL, true);
-         mCurrentFrame.mvbLineOutlier = bOutlier;
+
+         for(int i =0; i<mCurrentFrame.NL; i++)
+            if(mCurrentFrame.mvpMapLines[i])
+                mCurrentFrame.mvpMapLines[i]=static_cast<MapLine*>(NULL);
+
     }else{
         Optimizer::PoseOptimization(&mCurrentFrame);
     }
@@ -1325,6 +1345,7 @@ bool Tracking::TrackWithMotionModel()
     int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR);
     int lmatches = 0;
     lmatches  = lmatcher.SearchByProjection(mCurrentFrame, mLastFrame, th);
+    //lmatches  = lmatcher.SearchByProjection(mCurrentFrame, mLastFrame);
 
     //cerr<<lmatches<<"__________________"<<endl;
 
@@ -1342,13 +1363,14 @@ bool Tracking::TrackWithMotionModel()
     // Optimize frame pose with all matches
     // --step5: 优化位姿
     //Optimizer::PoseOptimization(&mCurrentFrame);
-    if(nmatches > 30){
+    /*if(nmatches > 30){
          Optimizer::PoseOptimizationWithPoints(&mCurrentFrame);
          std::vector<bool> bOutlier = std::vector<bool>(mCurrentFrame.NL, true);
          mCurrentFrame.mvbLineOutlier = bOutlier;
-    }else{
-        Optimizer::PoseOptimization(&mCurrentFrame);
-    }
+    }else{*/
+    cerr<<"TrackWithMotionModel: ";
+    Optimizer::PoseOptimization(&mCurrentFrame);
+    //}
 
     // Discard outliers
     // --step6：优化位姿后剔除outlier的mvpMapPoints 和 mvpMapLines
@@ -1477,6 +1499,7 @@ bool Tracking::TrackLocalMapWithLines()
     threadLines.join();
 
     // step4：更新局部所有MapPoints和MapLines后对位姿再次优化
+    cerr<<"TrackMap: ";
     Optimizer::PoseOptimization(&mCurrentFrame);
     mnMatchesInliers = 0;
     mnLineMatchesInliers = 0;
@@ -1832,7 +1855,7 @@ void Tracking::SearchLocalLines()
         int nmatches = matcher.SearchByProjection(mCurrentFrame, mvpLocalMapLines, th);
 
         // 利用线约束对线进行剔除
-        if(nmatches)
+        /*if(nmatches)
         {
             for(int i = 0; i<mCurrentFrame.mvpMapLines.size(); i++)
             {
@@ -1855,14 +1878,14 @@ void Tracking::SearchLocalLines()
                     cv::Mat tCameraVector_ = Rcw * tWorldVector_;
                     double CosSita = abs(NormalVector_.dot(tCameraVector_));
 
-                    if(CosSita>0.0087)
+                    if(CosSita>0.09)
                     {
                         mCurrentFrame.mvpMapLines[i]=static_cast<MapLine*>(NULL);
                     }
                     //cerr<<CosSita<<endl;
                 }
-            }   
-        }
+            }
+        }*/
     }
 }
 

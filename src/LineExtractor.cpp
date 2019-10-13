@@ -61,8 +61,8 @@ void LINEextractor::operator()( cv::InputArray _image, cv::InputArray _mask, std
         }
     }
 
-    _keylines.resize(index);
-    for(unsigned int i=0; i<index; i++){
+    _keylines.resize(index + 1);
+    for(unsigned int i=0; i<index + 1; i++){
          _keylines[i].class_id = i;
     }
 
@@ -78,6 +78,7 @@ void LINEextractor::operator()( cv::InputArray _image, cv::InputArray _mask, std
     lbd->compute(image, _keylines, descriptors);     //计算特征线段的描述子
 
     // 计算特征线段所在直线的系数
+    _lineVec2d.clear();
     for(vector<KeyLine>::iterator it=_keylines.begin(); it!=_keylines.end(); ++it)
     {
         Eigen::Vector3d sp_l; sp_l << it->startPointX, it->startPointY, 1.0;

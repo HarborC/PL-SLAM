@@ -43,6 +43,8 @@ namespace ORB_SLAM2
         static int DescriptorDistance(const Mat &a, const Mat &b);
 
         int SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, vector<pair<size_t, size_t>> &vMatchedPairs);
+        int SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, vector<int> &vMatchedPairs, bool isDouble = false);
+        int SearchForTriangulationNew(KeyFrame *pKF1, KeyFrame *pKF2, vector<int> &vMatchedPairs, bool isDouble = false);
 
         // Project MapLines into KeyFrame and search for duplicated MapLines
         int Fuse(KeyFrame* pKF, const vector<MapLine *> &vpMapLines, float th = 3.0);
@@ -60,6 +62,10 @@ namespace ORB_SLAM2
 
         // For Initialize 
         void FrameBFMatch(cv::Mat ldesc1, cv::Mat ldesc2, vector<int>& LineMatches, float TH);
+        void FrameBFMatchNew(cv::Mat ldesc1, cv::Mat ldesc2, vector<int>& LineMatches, vector<KeyLine> kls1, vector<KeyLine> kls2, vector<Eigen::Vector3d> kls2func, cv::Mat F, float TH);
+
+        float mutualOverlap(const std::vector<cv::Mat>& collinear_points);
+        cv::Mat ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2);
 
         void lineDescriptorMAD(vector<vector<DMatch>> line_matches, double &nn_mad, double &nn12_mad) const;
 

@@ -48,7 +48,6 @@ class MapPoint;
 class KeyFrame;
 class MapLine;
 
-
 class Frame
 {
 public:
@@ -64,13 +63,13 @@ public:
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Constructor for Monocular cameras.
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* orbextractor,LINEextractor* lsdextractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
+    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* orbextractor,LINEextractor* lsdextractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const cv::Mat &mask = cv::Mat());
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
     void ExtractORB(int flag, const cv::Mat &im);
 
     // extract line feature, 自己添加的
-    void ExtractLSD(const cv::Mat &im);
+    void ExtractLSD(const cv::Mat &im, const cv::Mat &mask);
 
     // 计算线特征端点的3D坐标，自己添加的
     void ComputeLine3D(Frame &frame1, Frame &frame2);
@@ -107,7 +106,7 @@ public:
 
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float &r, const int minLevel=-1, const int maxLevel=-1) const;
     vector<size_t> GetLinesInArea(const float &x1, const float &y1, const float &x2, const float &y2, const float &r, const int minLevel=-1, const int maxLevel=-1, const float TH = 0.998) const;
-    vector<size_t> GetFeaturesInAreaForLine(const float &x1, const float &y1, const float &x2, const float &y2, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
+    vector<size_t> GetFeaturesInAreaForLine(const float &x1, const float &y1, const float &x2, const float &y2, const float  &r, const int minLevel=-1, const int maxLevel=-1, const float TH = 0.998) const;
 
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.

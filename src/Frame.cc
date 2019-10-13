@@ -190,7 +190,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
 
 
 /// 单目初始化建立frame
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* orbextractor,LINEextractor* lsdextractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth)
+Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* orbextractor,LINEextractor* lsdextractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, const cv::Mat &mask)
     :mpORBvocabulary(voc),mpORBextractorLeft(orbextractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)), mpLSDextractorLeft(lsdextractor), 
      mTimeStamp(timeStamp), mK(K.clone()),mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth)
 {
@@ -217,8 +217,12 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* orbex
     mvLevelSigma2Line = mpLSDextractorLeft->GetScaleSigmaSquares();
     mvInvLevelSigma2Line = mpLSDextractorLeft->GetInverseScaleSigmaSquares();
 
+    cv::Mat mUndistX, mUndistY, mImGray_remap;
+    initUndistortRectifyMap(mK, mDistCoef, Mat_<double>::eye(3,3), mK, Size(imGray.cols, imGray.rows), CV_32F, mUndistX, mUndistY);
+    cv::remap(imGray, mImGray_remap, mUndistX, mUndistY, cv::INTER_LINEAR);
+
     thread threadPoint(&Frame::ExtractORB, this, 0, imGray);
-    thread threadLine(&Frame::ExtractLSD, this, imGray);
+    thread threadLine(&Frame::ExtractLSD, this, mImGray_remap, mask);
     threadPoint.join();
     threadLine.join();
 
@@ -228,7 +232,8 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* orbex
     if(mvKeys.empty())
         return;
         
-    mvKeysUn = mvKeys;
+    //mvKeysUn = mvKeys;
+    UndistortKeyPoints();
 
     // Set no stereo information
     mvuRight = vector<float>(N,-1);
@@ -323,9 +328,9 @@ void Frame::ExtractORB(int flag, const cv::Mat &im)
 }
 
 // line feature extractor, 自己添加的
-void Frame::ExtractLSD(const cv::Mat &im)
+void Frame::ExtractLSD(const cv::Mat &im, const cv::Mat &mask)
 {
-    (*mpLSDextractorLeft)(im,cv::Mat(),mvKeylinesUn, mLdesc, mvKeyLineFunctions);
+    (*mpLSDextractorLeft)(im,mask,mvKeylinesUn, mLdesc, mvKeyLineFunctions);
 }
 
 // 根据两个匹配的特征线计算特征线的3D坐标, frame1是当前帧，frame2是前一帧
@@ -760,7 +765,7 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const f
     return vIndices;
 }
 
-vector<size_t> Frame::GetFeaturesInAreaForLine(const float &x1, const float &y1, const float &x2, const float &y2, const float  &r, const int minLevel, const int maxLevel) const
+vector<size_t> Frame::GetFeaturesInAreaForLine(const float &x1, const float &y1, const float &x2, const float &y2, const float  &r, const int minLevel, const int maxLevel,const float TH) const
 {
     vector<size_t> vIndices;
     vIndices.reserve(NL);
@@ -768,6 +773,12 @@ vector<size_t> Frame::GetFeaturesInAreaForLine(const float &x1, const float &y1,
 
     float x[3] = {x1, (x1+x2)/2.0, x2};
     float y[3] = {y1, (y1+y2)/2.0, y2}; 
+
+    float delta1x = x1-x2;
+    float delta1y = y1-y2;
+    float norm_delta1 = sqrt(delta1x*delta1x + delta1y*delta1y);
+    delta1x /= norm_delta1;
+    delta1y /= norm_delta1;
 
     for(int i = 0; i<3;i++){
         const int nMinCellX = max(0,(int)floor((x[i]-mnMinX-r)*mfGridElementWidthInv));
@@ -786,8 +797,6 @@ vector<size_t> Frame::GetFeaturesInAreaForLine(const float &x1, const float &y1,
         if(nMaxCellY<0)
             continue;
 
-        const bool bCheckLevels = (minLevel>0) || (maxLevel>=0);
-
         for(int ix = nMinCellX; ix<=nMaxCellX; ix++)
         {
             for(int iy = nMinCellY; iy<=nMaxCellY; iy++)
@@ -802,14 +811,16 @@ vector<size_t> Frame::GetFeaturesInAreaForLine(const float &x1, const float &y1,
                         continue;
 
                     const KeyLine &klUn = mvKeylinesUn[vCell[j]];
-                    if(bCheckLevels)
-                    {
-                        if(klUn.octave<minLevel)
-                            continue;
-                        if(maxLevel>=0)
-                            if(klUn.octave>maxLevel)
-                                continue;
-                    }
+
+                    float delta2x = klUn.startPointX - klUn.endPointX;
+                    float delta2y = klUn.startPointY - klUn.endPointY;
+                    float norm_delta2 = sqrt(delta2x*delta2x + delta2y*delta2y);
+                    delta2x /= norm_delta2;
+                    delta2y /= norm_delta2;
+                    float CosSita = abs(delta1x * delta2x + delta1y * delta2y);
+
+                    if(CosSita < TH)
+                        continue;
 
                     Eigen::Vector3d Lfunc = mvKeyLineFunctions[vCell[j]]; 
                     const float dist = Lfunc(0)*x[i] + Lfunc(1)*y[i] + Lfunc(2);

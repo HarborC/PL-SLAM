@@ -78,6 +78,7 @@ protected:
     void ProcessNewKeyFrame();
     void CreateNewMapPoints();
     void CreateNewMapLines();
+    void CreateNewMapLinesConstraint();
 
     void MapPointCulling();
     void SearchInNeighbors();
