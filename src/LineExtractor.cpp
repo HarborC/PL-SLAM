@@ -60,6 +60,8 @@ void LINEextractor::operator()( cv::InputArray _image, cv::InputArray _mask, std
             }
         }
     }
+    else
+        index--;
 
     _keylines.resize(index + 1);
     for(unsigned int i=0; i<index + 1; i++){
